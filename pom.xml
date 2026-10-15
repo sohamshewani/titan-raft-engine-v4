@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.titan.raft</groupId>
+    <artifactId>titan-raft-engine</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>titan-raft-engine</name>
+    <description>Production-grade Raft consensus engine with native integration hooks.</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jmh.version>1.37</jmh.version>
+        <junit.version>5.10.2</junit.version>
+    </properties>
+
+    <dependencies>
+        <!-- JMH for benchmarking -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit 5 for testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+            </plugin>
+
+            <!-- Surefire Plugin for unit tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!-- Maven Antrun Plugin to implement custom targets (all, build, test, clean, benchmark) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <!-- 'all' target -->
+                    <execution>
+                        <id>target-all</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <echo message="Executing target: all"/>
+                                <antcall target="native-compile"/>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- 'build' target -->
+                    <execution>
+                        <id>target-build</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <echo message="Executing target: build"/>
+                                <!-- Safely compile native code if present with optimization flags -->
+                                <mkdir dir="${project.build.directory}/native"/>
+                                <exec executable="g++" failonerror="false" resultproperty="gpp.exit.code">
+                                    <arg line="-O3 -Wall -Wextra -shared -fPIC"/>
+                                    <arg line="${basedir}/src/main/native/engine.cpp"/>
+                                    <arg line="-o ${project.build.directory}/native/libtitan.so"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- 'test' target -->
+                    <execution>
+                        <id>target-test</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <echo message="Executing target: test"/>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- 'clean' target -->
+                    <execution>
+                        <id>target-clean</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <echo message="Executing target: clean"/>
+                                <delete dir="${project.build.directory}" includeemptydirs="true" quiet="true"/>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <!-- 'benchmark' target -->
+                    <execution>
+                        <id>target-benchmark</id>
+                        <phase>none</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <echo message="Executing target: benchmark"/>
+                                <available file="${project.build.directory}/benchmarks.jar" property="benchmark.jar.exists"/>
+                                <fail message="Benchmarks JAR not found. Run 'mvn package' first.">
+                                    <condition>
+                                        <not>
+                                            <isset property="benchmark.jar.exists"/>
+                                        </not>
+                                    </condition>
+                                </fail>
+                                <java jar="${project.build.directory}/benchmarks.jar" fork="true"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
